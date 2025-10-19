@@ -1,96 +1,246 @@
-# Introduction {#sec-intro}
+# Analysing the Network of Aged Care Hospital Transfers in Victoria {#sec-intro}
 
-```{r}
-#| label: load_packages
-#| include: false
-library(dplyr)
-library(ggplot2)
-library(tidyr)
-library(tsibble)
-library(feasts)
-library(fable)
-```
+**Student Name:** Lesheng Xu  \
+**Student ID:** 29615550  \
+**Email:** lxuu0021@student.monash.edu  \
+**Supervisors:** Dr Michael Lydeamore; Prof Di Cook
 
-This is where you introduce the main ideas of your thesis, and an overview of the context and background.
+## Abstract
 
-In a PhD, Chapter 2 would normally contain a literature review. Typically, Chapters 3--5 would contain your own contributions. Think of each of these as potential papers to be submitted to journals. Finally, Chapter 6 provides some concluding remarks, discussion, ideas for future research, and so on. Appendixes can contain additional material that don't fit into any chapters, but that you want to put on record. For example, additional tables, output, etc.
+This study investigates the network of transfers between aged care facilities and hospitals in Victoria using data from Ambulance Victoria. The analysis combines exploratory data techniques with statistical modelling to understand structural patterns and temporal variations in transfers. The network shows a highly centralised structure, with major hospitals and a small number of aged care facilities acting as key hubs. Transfers were significantly lower during weekends and declined further during the COVID-19 period, although the impact varied across facilities.
 
-## Quarto
+To model transfer behaviour, several approaches were compared and the negative binomial generalised linear model provided the best fit. This specification accounted for overdispersion in the data, delivered stable predictions, and outperformed the Poisson model across multiple evaluation criteria. Cross-validation confirmed that predictive accuracy was consistent over time, with only minor biases in specific subgroups.
 
-In this template, the rest of the chapter shows how to use quarto. The big advantage of using quarto is that it allows you to include your R or Python code directly into your thesis, to ensure there are no errors in copying and pasting, and that everything is reproducible. It also helps you stay better organized.
+The results highlight the strong heterogeneity of aged care transfers across facilities and over time. They provide practical insights for staffing, ambulance planning, and infection control, particularly by identifying high-volume transfer corridors and weekday–weekend differences. The study also reveals data challenges, including inconsistent facility classification and the absence of richer covariates such as distance or clinical factors. Overall, the work demonstrates that network-informed modelling of aged care transfers is both feasible and informative, providing a foundation for more comprehensive models and simulations that can strengthen public health planning and improve the resilience of aged care systems.
 
-For details on using Quarto, see <http://quarto.org>.
+## Background
 
-## Data
+The transfer of residents from aged care facilities to hospitals is a common and necessary component of eldercare. These transfers occur for urgent medical treatment, routine appointments, and preventative health care. Transfers are also used to manage outbreaks within facilities by moving vulnerable residents to reduce transmission risks. Although medically justified, these transfers may pose significant risks, particularly with respect to the spread of infectious diseases. Older adults are more susceptible to infections, and their frequent transfers between facilities and hospitals potentially create a vector for disease transmission across sites.
 
-Included in this template is a file called `sales.csv`. We can load in this data set using the following code:
+Aged care networks form complex systems in which facilities are nodes and patient transfers are links. Epidemiological and network studies have shown that patient movement in such systems can influence the spread of diseases such as influenza and MRSA (Donker et al., 2010; Assab et al., 2017). However, this dynamic has not been rigorously studied in the Australian aged care context, particularly within Victoria. Given the sector's vulnerability during recent infectious outbreaks, including COVID-19, a deep understanding of these inter-facility connections is both timely and necessary.
 
-```{r}
-#| label: load_data
-#| echo: true
-#| message: false
-sales <- readr::read_csv(here::here("data/sales.csv")) |>
-  mutate(
-    Quarter = as.Date(paste0("01-", Quarter), "%d-%b-%y"),
-    Quarter = yearquarter(Quarter)
-  ) |>
-  as_tsibble(index = Quarter)
-```
+## Motivation
 
-Any data you use in your thesis can go into the `data` directory. The data should be in exactly the format you obtained it. Do no editing or manipulation of the data prior to including it in the `data` directory. Any data munging should be scripted and form part of your thesis files (possibly hidden in the output).
+The Australian aged care sector, especially in Victoria, was severely impacted during the COVID-19 pandemic. Infections were often introduced and amplified through transfers between aged care facilities and hospitals. This research is motivated by the need to understand how transfer patterns contribute to this problem. While research has addressed hospital networks and general healthcare systems (Donker et al., 2010), a gap exists in the context-specific analysis of aged care in Victoria. There is also a need to move beyond descriptive studies toward predictive models that can inform practical interventions. Insights from this research can guide policy on managing transfers, preventing outbreaks, and improving aged care outcomes, especially for infection control. This project aims to fill that gap using network science and epidemiological modelling, with the potential to impact public health policy, hospital logistics, and aged care management.
 
-## Figures
+## Research Questions
 
-@fig-deaths shows time plots of the data we just loaded. Notice how figure captions and references work. Chunk names can be used as figure labels with `fig-` prefixed. Never manually type figure numbers, as they can change when you add or delete figures. This way, the figure numbering is always correct.
+- What are the structural properties of the network formed by patient transfers between aged care facilities and hospitals in Victoria?
+- Can the impact of COVID-19 be detected in the transfer network?
+- What is the most appropriate model fit for the transfer network within the project scope?
 
-```{r}
-#| label: fig-deaths
-#| fig-cap: "Quarterly sales, advertising and GDP data."
-sales |>
-  pivot_longer(Sales:GDP) |>
-  autoplot(value) +
-  facet_grid(name ~ ., scales = "free_y") +
-  theme(legend.position = "none")
-```
+## Review of the Literature
 
-## Results from analyses
+Healthcare network analysis has gained attention as a method to understand and potentially curb the spread of infectious diseases. Donker et al. (2010, 2012) and Assab et al. (2017) demonstrated that patient transfers between healthcare institutions can significantly influence infection dynamics. They used network analysis metrics—such as centrality, clustering, and modularity—to uncover key institutions that act as hubs or bridges for disease propagation.
 
-We can fit a regression model to the sales data.
+Although similar methodologies have been applied in the United States and Europe, the literature remains sparse in the Australian context. Moreover, the aged care sector presents unique challenges compared to hospital settings, including higher baseline vulnerability, longer stays, and limited infection control resources. Various modelling approaches, such as agent-based simulations and stochastic processes, have been used to simulate disease spread within healthcare systems (Pei et al., 2018). These techniques help assess different outbreak scenarios and intervention strategies, such as reducing specific transfers or vaccinating key nodes. However, their application in Victorian aged care remains unexplored. This study builds on the existing body of work and contextualises findings within the Australian aged care system using data from Ambulance Victoria.
 
-```{r}
+## Research Methodology
+
+This study models and analyses the inter-facility patient transfer network between aged care facilities and hospitals in Victoria using Ambulance Victoria transfer data. Several candidate models were explored for fitting and explaining the observed network, including the gravity model, spatial interaction models, and network regression frameworks. Model selection was based on empirical fit, interpretability, and suitability for potential downstream applications such as infectious disease modelling.
+
+### Data Source
+
+The study uses anonymised patient transfer data from Ambulance Victoria, detailing origin and destination facilities, timestamps, and unique patient identifiers.
+
+### Ethical Considerations
+
+Patient data were anonymised and used in compliance with Alfred Health ethics guidelines and health data protection standards. Approval was sought from the Alfred Health ethics committee.
+
+### Network Construction
+
+The transfer network is represented as a directed, weighted graph. Nodes correspond to either aged care facilities or hospitals, and edges represent the flow of patients directed from the origin facility to the receiving hospital. Edge weights reflect the frequency of transfers over defined time windows (e.g., quarterly or annually), enabling temporal analyses. The network was stratified by specific time periods, including the onset of COVID-19 beginning on 15 March 2020, as well as by weekdays and weekends, to capture variations in transfer behaviour. Visualisation and analysis employed R packages such as igraph, tidygraph, and ggraph.
+
+### Candidate Modelling Strategies
+
+To explain and predict the observed transfer patterns, the analysis considered:
+
+1. **Gravity models** to capture distance-dependent flows between facilities.
+2. **Stochastic block models** and related clustering techniques to identify communities and block structures within the network.
+3. **Generalised linear models (GLMs)**, including Poisson and negative binomial variants, to model transfer counts with covariates capturing facility, hospital, period, and day-type effects.
+
+### Model Selection and Evaluation
+
+Model selection considered statistical, practical, and contextual factors. Goodness-of-fit was assessed using deviance, log-likelihood, and RMSE on holdout data. Interpretability ensured that models explained the main drivers of transfer volumes. Predictive performance was judged by forecasting behaviour under unseen conditions. Scalability ensured methods remained feasible on statewide data, and applicability favoured models that can support future extensions such as infection spread simulations.
+
+Evaluation combined complementary methods. Cross-validation and bootstrapping tested the stability of results across different data subsets. Network diagnostics—including centrality, degree distribution, and modularity—provided additional insight into structural properties. Collectively, these criteria ensured that model selection was rigorous and relevant to the aged care context.
+
+## Exploratory Data Analysis
+
+### Age and Gender
+
+The histogram of age shows that most patients are between 80 and 95 years old, reflecting the Residential Aged Care Facility (RACF) population. The right-skewed distribution suggests that most patients are elderly, with fewer younger individuals. The younger tail (ages 0–50) likely includes data anomalies or misclassified visitors, staff, or newborns and may require filtering depending on the network presentation.
+
+Female predominance (~57%) is consistent with demographic patterns in aged care populations, where women have higher life expectancy. Many residents requiring care for chronic, degenerative conditions are female. The male proportion (~43%) indicates a substantial cohort of older males accessing ambulance services. Male residents may differ in clinical profiles, such as more cardiac or trauma-related transfers, which would require deeper analysis beyond the current project scope.
+
+### Diagnosis and Case Nature
+
+Pain is the most common diagnosis, reflecting frailty and chronic illness in elderly populations. The overwhelming lead of “medical” nature confirms the dataset's focus on internal medicine rather than surgical transfers. Many patients present with vague symptoms, making definitive diagnosis difficult and underscoring the importance of understanding transfer pathways for triage.
+
+### Transfer Volumes and Temporal Structure
+
+General transfer counts total 109,415 records. The full set of transfers splits into:
+
+- **Pre-COVID transfers (before March 2020):** 52,119 events.
+- **During-COVID transfers (March 2020 onward):** 57,296 events.
+
+Despite pandemic disruptions, transfer activity did not decrease dramatically overall. Transfers between weekdays and weekends are heavily skewed toward weekdays, which aligns with planned procedures and staffing norms. The decline from Friday to Sunday suggests that planned transfers slow on weekends, with only urgent or emergency transfers persisting.
+
+A line graph of weekly counts shows a steady number of transfers before March 2020. The sharp decline in March–April 2020 likely coincides with initial lockdowns and policy shifts restricting movement, while later periods show recovery or plateaus as systems adjusted and vaccination campaigns took hold.
+
+### Spatial Concentration of Transfers
+
+High-volume corridors reveal concentrated activity:
+
+- Addresses such as Plenty Road (Bundoora) and Willandra Drive (Epping) represent large, high-needs aged care facilities with frequent hospital connections.
+- Landsborough Street (Warragul) highlights a data quality issue because it corresponds to a hospital rather than a residential aged care facility.
+- Regional sites like Sale and Warragul show significant activity, suggesting strong reliance on major hospitals for specialised care.
+
+Hospitals receiving the most transfers include major metropolitan and regional centres, with private facilities such as Jessie McPherson also appearing. This mix indicates that some RACF residents are referred to specialised private care when appropriate.
+
+### Distance Versus Transfer Counts
+
+Distance influences how intensely facilities exchange patients. Exploratory analyses derived from `distancevscount.R` show that:
+
+- Transfer counts per facility pair decay with increasing great-circle distance, following an approximate power-law relationship on log–log scales.
+- Log-spaced distance bins reveal that most transfer volume occurs within mid-range distances, while extremely short or long distances contribute fewer transfers overall.
+- Negative binomial regression confirms a statistically significant association between log-distance and expected transfer counts, even after accounting for overdispersion.
+- Stratified analyses highlight similar distance–volume relationships across pre/during COVID periods and between weekday/weekend patterns, with only mild shifts in slope.
+
+These findings emphasise the importance of spatial proximity when modelling and planning for transfer activity.
+
+## Network Visualisation
+
+Network plots illustrate the centralised structure of the Victorian transfer system. Figures comparing weekday versus weekend transfers show a clear reduction in overall edge density on weekends. Pre-COVID and during-COVID transfer networks appear broadly similar in layout, but visual inspection alone cannot capture subtle structural changes.
+
+Additional network views such as fisheye transformations help reveal regional clusters while preserving important metropolitan detail. Differential network plots (weekday minus weekend, during-COVID minus pre-COVID) expose corridors with the largest relative changes.
+
+## Statistical Modelling
+
+### Model Comparison
+
+Initial experiments considered gravity models and stochastic block models. Both approaches provided qualitative insight but were either too complex for timely delivery or insufficiently aligned with operational needs. Generalised linear models offered a better balance between rigour and practicality.
+
+### Negative Binomial GLM Results
+
+The negative binomial GLM uses a log link, so each coefficient shifts the expected transfer count on a multiplicative scale. The intercept sets the baseline for a reference RACF, a reference hospital, pre-COVID, and weekday conditions. With an intercept of 5.555 on the log scale, the baseline implies roughly 259 transfers for the reference case.
+
+The COVID indicator shows a clear drop. The coefficient for the "During" period equals −0.266, corresponding to a rate ratio of 0.77. Transfers during COVID are about 23% lower than pre-COVID, holding other factors fixed. The weekend effect is strong: the coefficient equals −1.029, corresponding to a rate ratio of 0.36. Weekend transfers are roughly 64% lower than weekday transfers.
+
+RACF effects vary widely. Plenty Road (Bundoora) has a coefficient near 2.946 (≈19 times the reference RACF). Willandra Drive (Epping) sits near 2.916 (≈18 times the reference), and The Strand (Moonee Ponds) sits near 1.760 (≈6 times the reference). Other RACFs show negative offsets: Burton Avenue (Clayton) sits near −3.329 (≈3% of the reference), and Young Road (Hallam) sits near −1.272 (≈28% of the reference). These patterns point to strong heterogeneity across facilities.
+
+Hospital effects are also distinct. Relative to the reference hospital, Austin Health sits near −1.023 (≈0.36 times the reference). Box Hill Hospital sits near −0.866 (≈0.42 times the reference). Dandenong Hospital sits near −1.348 (≈0.26 times the reference). Royal Melbourne Hospital (City Campus) sits near −3.407 (≈0.03 times the reference). The Northern Hospital sits near −2.939 (≈0.05 times the reference). These ratios reflect systematic differences in flows after accounting for RACF, period, and day-type effects.
+
+Rate ratios summarised in appendices convert directly to expected counts for planning. For a high-volume corridor—weekday, pre-COVID transfers from Plenty Road (Bundoora) to Austin Health—the expected count is approximately 1,770 transfers per week. By contrast, for a low-volume corridor—weekend, during-COVID transfers from Burton Avenue (Clayton) to the Royal Melbourne Hospital (City Campus)—the expected count is roughly 0.08 transfers per week (about one transfer every 12–13 weeks).
+
+### Model Adequacy and Cross-Validation
+
+The negative binomial GLM fits the data well, handling extra variability and achieving lower information criteria than competing models. Residuals are stable, out-of-sample checks are reasonable, and key estimates are interpretable. COVID-period and weekend indicators capture major shifts in transfer intensity. Facility and hospital effects capture persistent heterogeneity.
+
+Weekly leave-one-out cross-validation confirms that predictive accuracy remains consistent over time, with only minor biases in specific subgroups. Prediction intervals contain observed totals in most folds, and residual diagnostics show no major structural violations.
+
+### Implications
+
+Results offer practical uses for health services. Staffing plans can account for weekday–weekend gaps, ambulance teams can anticipate lighter weekends and heavier mid-week peaks, and hospitals can target high-volume RACFs to streamline referrals. Managers can monitor main corridors carrying most flows, and planners can flag sudden deviations from expectations. Infection control teams can watch high-volume links during outbreaks, and policy staff can test scenarios by adjusting period and day settings. The project adopts the negative binomial GLM for inference and short-term forecasting.
+
+## Discussion
+
+This study provides one of the first systematic examinations of aged care–hospital transfer networks in Victoria using Ambulance Victoria data. By combining exploratory network analysis with statistical modelling, the research highlights the structure of transfers, temporal variations, and key institutional roles. The results demonstrate clear heterogeneity across facilities and hospitals, with certain RACFs and hospitals acting as central hubs. Transfers decreased substantially during weekends and fell further during the COVID-19 period, although this decline varied across institutions. Importantly, the negative binomial GLM was identified as the most suitable statistical framework, balancing computational efficiency, interpretability, and robustness.
+
+Several limitations must be acknowledged. The dataset, although large, contains inconsistencies such as missing or ambiguous facility names, misclassified addresses, and small numbers of implausible records. These issues required filtering and careful interpretation, but residual errors may remain. The analysis was restricted to a core sub-network to ensure computational tractability, inevitably excluding peripheral RACFs and hospitals. The models included only a limited set of covariates—COVID period, weekday versus weekend, origin RACF, and destination hospital. Other potentially important drivers, such as distance, travel time, patient condition, or staffing levels, were not incorporated, which may explain some residual bias observed in cross-validation. Finally, treating the data as cross-sectional may understate dynamic feedbacks; transfers during one week may influence flows in subsequent weeks, particularly during outbreaks.
+
+These limitations suggest several directions for future improvement. Data quality can be strengthened by matching facility addresses with verified lists of hospitals and aged care homes. Expanding the analysis to include the entire statewide network would provide a more complete view of transfer patterns, though this will require greater computing power or more efficient model structures. Adding richer variables—such as distance, travel time, and patient characteristics—could help explain differences in transfer behaviour and reduce residual biases. Future models could include temporal dependencies or dynamic network approaches to capture how transfer patterns change over time. Simulating disease transmission directly on the network is another promising extension for identifying high-risk connections during outbreaks.
+
+Overall, the project shows that network-based modelling of aged care transfers is practical and informative. The negative binomial GLM offers a solid starting point for understanding transfer behaviour and guiding policy decisions. It can help identify key transfer corridors and reveal system weaknesses. Future work focusing on cleaner data, wider network coverage, and more detailed modelling of time and space will deepen understanding and support better planning for operations and infection control.
+
+## Conclusion
+
+This project explored transfer patterns between aged care facilities and hospitals in Victoria using Ambulance Victoria data. Transfers follow clear and consistent patterns, with some RACFs and hospitals acting as major hubs. Transfer activity dropped on weekends and declined further during the COVID-19 period, although the magnitude varied between locations. The negative binomial generalised linear model proved to be the best-fitting option, handling extra variation and producing stable results across different time periods.
+
+The findings provide practical insights: health services can plan staff rosters and monitor busy transfer routes; ambulance services can prepare for peak periods; hospitals can strengthen referral links with high-volume RACFs. The analysis also highlighted gaps in the data and methods, including unclear facility names, the exclusion of smaller sites, and limited covariates. Future work should build on a cleaner and more detailed dataset with stronger modelling tools. Network-informed modelling of aged care transfers is feasible, interoperable, and valuable for policy and planning, providing a foundation for future research to expand coverage, refine models, and simulate infection risks. Strengthening this work will help the aged care sector move towards safer, more resilient systems that better protect vulnerable residents.
+
+## References
+
+Donker, T., Wallinga, J., & Grundmann, H. (2010). Patient referral patterns and the spread of hospital-acquired infections through national health care networks. *PLoS Computational Biology, 6*(3), e1000715.
+
+Donker, T., et al. (2012). Hospital networks and the risk of hospital-acquired infections. *Journal of the Royal Society Interface, 9*(76), 2648–2656.
+
+Assab, R., et al. (2017). Healthcare-associated infection transmission across networked hospital settings. *BMC Medicine, 15*(1), 157.
+
+Newman, M. E. J. (2010). *Networks: An Introduction*. Oxford University Press.
+
+Pei, S., Morone, F., Liljeros, F., Makse, H., & Shaman, J. L. (2018). Inference and control of the nosocomial transmission of methicillin-resistant *Staphylococcus aureus*. *eLife, 7*, e40977. https://doi.org/10.7554/eLife.40977
+
+ABC News. (2020, August 14). Coronavirus outbreak forces closure of Royal Melbourne Hospital wards. Australian Broadcasting Corporation. https://www.abc.net.au/news/2020-08-14/coronavirus-outbreak-royal-melbourne-hospital-wards-close/12556622
+
+## Reproducible Code Listings
+
+### Exploratory Data Analysis and Network Plot (`code/code.R`)
+
+```{r include-code-eda}
+#| label: include-code-eda
 #| echo: false
-fit <- sales |>
-  model(arima = TSLM(Sales ~ GDP + AdBudget))
-coef <- tidy(fit)
-gdp <- coef |>
-  filter(term == "GDP") |>
-  pull(estimate)
-adbudget <- coef |>
-  filter(term == "AdBudget") |>
-  pull(estimate)
+#| results: 'asis'
+eda_lines <- readLines("code/code.R")
+cat("```r\n")
+cat(paste(eda_lines, collapse = "\n"))
+cat("\n```\n")
 ```
 
-If $y_t$ denotes the sales in quarter $t$, $x_t$ denotes the corresponding advertising budget and $z_t$ denotes the GDP, then the resulting model is:
-$$
-  y_t = \beta x_t + \gamma z_t + \varepsilon_t
-$$ {#eq-drm}
-where
-$\hat{\beta} = `r sprintf("%.2f", adbudget)`$,
-and
-$\hat{\gamma} = `r sprintf("%.2f", gdp)`$.
-We can reference this equation using @eq-drm.
+### Fisheye Network View (`code/fisheye.R`)
 
-## Tables
-
-We can also make a nice summary table of the coefficients, as shown in @tbl-coef
-
-```{r}
-#| label: tbl-coef
-#| tbl-cap: "Coefficients from the fitted model."
-tidy(fit) |>
-  select(term, estimate, p.value) |>
-  rename(Coefficient = term, Estimate = estimate, `P value` = p.value) |>
-  knitr::kable(booktabs = TRUE, digits = 2)
+```{r include-code-fisheye}
+#| label: include-code-fisheye
+#| echo: false
+#| results: 'asis'
+fisheye_lines <- readLines("code/fisheye.R")
+cat("```r\n")
+cat(paste(fisheye_lines, collapse = "\n"))
+cat("\n```\n")
 ```
 
-Again, notice the use of labels and references to automatically generate table numbers.
+### Adjacency Matrix and Heat Map (`code/triptych.R`)
+
+```{r include-code-triptych}
+#| label: include-code-triptych
+#| echo: false
+#| results: 'asis'
+triptych_lines <- readLines("code/triptych.R")
+cat("```r\n")
+cat(paste(triptych_lines, collapse = "\n"))
+cat("\n```\n")
+```
+
+### Model Testing and Cross-Validation (`code/glmfit&cv.R`)
+
+```{r include-code-glm}
+#| label: include-code-glm
+#| echo: false
+#| results: 'asis'
+glm_lines <- readLines("code/glmfit&cv.R")
+cat("```r\n")
+cat(paste(glm_lines, collapse = "\n"))
+cat("\n```\n")
+```
+
+### Distance Versus Transfer Counts (`code/distancevscount.R`)
+
+```{r include-code-distance}
+#| label: include-code-distance
+#| echo: false
+#| results: 'asis'
+dist_lines <- readLines("code/distancevscount.R")
+cat("```r\n")
+cat(paste(dist_lines, collapse = "\n"))
+cat("\n```\n")
+```
+
+## Appendix Overview
+
+- Appendix 1: Predicted results comparison for negative binomial versus Poisson models under weekday/weekend effects.
+- Appendix 2: Residual comparison for negative binomial versus Poisson models under weekday/weekend effects.
+- Appendix 3: Predicted results versus actual observations by cross-validation.
+- Appendix 4: Rate ratios of high-volume RACFs.
+- Appendix 5: Rate ratios of low-volume RACFs.
+- Appendix 6: Rate ratios of selected hospitals.
+- Appendix 7: Applications of rate ratios for planning scenarios.
